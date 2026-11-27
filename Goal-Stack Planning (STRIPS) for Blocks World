@@ -1,0 +1,56 @@
+# Run: python P9_strips_blocks_world.py
+# Library: none. Only plain Python 3
+
+class BlocksWorldPlanner:
+    def __init__(self, initial_state, goal_state):
+        self.state = set(initial_state)
+        self.goal = set(goal_state)
+        self.plan = []
+
+    def is_clear(self, block):
+        return f"CLEAR({block})" in self.state
+
+    def on_table(self, block):
+        return f"ONTABLE({block})" in self.state
+
+    def unstack(self, x, y):
+        if f"ON({x},{y})" in self.state and self.is_clear(x):
+            self.state.remove(f"ON({x},{y})")
+            self.state.add(f"CLEAR({y})")
+            self.state.add(f"ONTABLE({x})")
+            self.plan.append(f"UNSTACK({x}, {y}) -> PUTDOWN({x})")
+
+    def stack(self, x, y):
+        if self.on_table(x) and self.is_clear(x) and self.is_clear(y) and x != y:
+            self.state.remove(f"ONTABLE({x})")
+            self.state.remove(f"CLEAR({y})")
+            self.state.add(f"ON({x},{y})")
+            self.plan.append(f"PICKUP({x}) -> STACK({x}, {y})")
+
+    def solve(self):
+        # Step 1: Clear all blocks onto table first (simplifies goal-stack resolution)
+        blocks = ["A", "B", "C"]
+        for x in blocks:
+            for y in blocks:
+                if f"ON({x},{y})" in self.state:
+                    self.unstack(x, y)
+
+        # Step 2: Achieve goal stacking relations bottom-up
+        while not self.goal.issubset(self.state):
+            for g in self.goal:
+                if g not in self.state and g.startswith("ON("):
+                    x, y = g[3:-1].split(",")
+                    self.stack(x, y)
+        return self.plan
+
+if __name__ == "__main__":
+    # Initial: C on A, A on table, B on table
+    init = {"ON(C,A)", "ONTABLE(A)", "ONTABLE(B)", "CLEAR(C)", "CLEAR(B)"}
+    # Goal: A on B, B on C
+    goal = {"ON(A,B)", "ON(B,C)"}
+
+    planner = BlocksWorldPlanner(init, goal)
+    actions = planner.solve()
+    print("--- STRIPS Blocks World Plan ---")
+    for step, act in enumerate(actions, 1):
+        print(f"Step {step}: {act}")
